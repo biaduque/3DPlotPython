@@ -1,5 +1,6 @@
 # Tirado de: https://thepythoncodingbook.com/2021/12/11/simulating-3d-solar-system-python-matplotlib/
 
+import itertools
 import matplotlib.pyplot as plt
 import math
 
@@ -13,8 +14,9 @@ class SolarSystem:
     '''
 
     # Função de inicialização do sistema solar
-    def __init__(self, size):
+    def __init__(self, size, projection_2d=False):
         self.size = size
+        self.projection_2d = projection_2d
         self.bodies = []
 
         self.fig, self.ax = plt.subplots(
@@ -24,7 +26,10 @@ class SolarSystem:
             figsize=(self.size / 50, self.size / 50),
         )
         self.fig.tight_layout()
-        self.ax.view_init(0, 0)
+        if self.projection_2d:
+            self.ax.view_init(10, 0)
+        else:
+            self.ax.view_init(0, 0)
 
     # Função para adicionar novos corpos celestes ao sistema solar
     def add_body(self, body):
@@ -32,6 +37,7 @@ class SolarSystem:
     
     # Função para atualizar a posição todos os corpos celestes do sistema solar
     def update_all(self):
+        self.bodies.sort(key=lambda item: item.position[0])
         for body in self.bodies:
             body.move()
             body.draw()
@@ -41,8 +47,21 @@ class SolarSystem:
         self.ax.set_xlim((-self.size / 2, self.size / 2))
         self.ax.set_ylim((-self.size / 2, self.size / 2))
         self.ax.set_zlim((-self.size / 2, self.size / 2))
+        if self.projection_2d:
+            self.ax.xaxis.set_ticklabels([])
+            self.ax.yaxis.set_ticklabels([])
+            self.ax.zaxis.set_ticklabels([])
+        else:
+            self.ax.axis(False)
         plt.pause(0.001)
         self.ax.clear()
+    
+    # Função para cálculo das interações dos corpos celestes
+    def calculate_all_body_interactions(self):
+        bodies_copy = self.bodies.copy()
+        for idx, first in enumerate(bodies_copy):
+            for second in bodies_copy[idx + 1:]:
+                first.accelerate_due_to_gravity(second)
     
 class SolarSystemBody:
     '''
@@ -95,6 +114,15 @@ class SolarSystemBody:
             markersize=self.display_size + self.position[0] / 30,
             color=self.colour
         )
+        if self.solar_system.projection_2d:
+            self.solar_system.ax.plot(
+                self.position[0],
+                self.position[1],
+                -self.solar_system.size / 2,
+                marker="o",
+                markersize=self.display_size / 2,
+                color=(.5, .5, .5),
+            )
 
     # Função para calculo da aceleração da gravidade
     def accelerate_due_to_gravity(self, other):
@@ -107,3 +135,38 @@ class SolarSystemBody:
             acceleration = force / body.mass
             body.velocity += acceleration * reverse
             reverse = -1
+
+class Sun(SolarSystemBody):
+    '''
+    solar_system:: Parâmetro que recebe o sistema solar a qual o sol pertence
+    mass:: Parâmetro que recebe o valor relativo da massa do sol
+    position:: Parâmetro que recebe a posição do sol no sistema solar
+    velocity:: Parâmetro que recebe a velocidade do sol no sistema solar
+    '''
+    def __init__(
+        self,
+        solar_system,
+        mass=10_000,
+        position=(0, 0, 0),
+        velocity=(0, 0, 0),
+    ):
+        super(Sun, self).__init__(solar_system, mass, position, velocity)
+        self.colour = "yellow"
+
+class Planet(SolarSystemBody):
+    '''
+    solar_system:: Parâmetro que recebe o sistema solar a qual o planeta pertence
+    mass:: Parâmetro que recebe o valor relativo da massa do planeta
+    position:: Parâmetro que recebe a posição do planeta no sistema solar
+    velocity:: Parâmetro que recebe a velocidade do planeta no sistema solar
+    '''
+    colours = itertools.cycle([(1, 0, 0), (0, 1, 0), (0, 0, 1)])
+    def __init__(
+        self,
+        solar_system,
+        mass=10,
+        position=(0, 0, 0),
+        velocity=(0, 0, 0),
+    ):
+        super(Planet, self).__init__(solar_system, mass, position, velocity)
+        self.colour = next(Planet.colours)
